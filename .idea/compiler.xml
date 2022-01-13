@@ -1,0 +1,42 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project version="4">
+  <component name="CompilerConfiguration">
+    <annotationProcessing>
+      <profile name="Maven default annotation processors profile" enabled="true">
+        <sourceOutputDir name="target/generated-sources/annotations" />
+        <sourceTestOutputDir name="target/generated-test-sources/test-annotations" />
+        <outputRelativeToContentRoot value="true" />
+        <module name="hudi-common" />
+        <module name="hudi-examples" />
+        <module name="hudi-spark3_2.12" />
+        <module name="hudi-spark-bundle_2.11" />
+        <module name="hudi-java-client" />
+        <module name="hudi-integ-test-bundle" />
+        <module name="hudi-hadoop-mr" />
+        <module name="hudi-cli" />
+        <module name="hudi-flink-bundle_2.11" />
+        <module name="hudi-client-common" />
+        <module name="hudi-presto-bundle" />
+        <module name="hudi-utilities_2.11" />
+        <module name="hudi-dla-sync" />
+        <module name="hudi-spark-common_2.11" />
+        <module name="hudi-flink_2.11" />
+        <module name="hudi-spark-client" />
+        <module name="hudi-utilities-bundle_2.11" />
+        <module name="hudi-flink-client" />
+        <module name="hudi-sync-common" />
+        <module name="hudi-hadoop-mr-bundle" />
+        <module name="hudi-kafka-connect" />
+        <module name="hudi-hive-sync" />
+        <module name="hudi-aws" />
+        <module name="hudi-spark_2.11" />
+        <module name="hudi-hive-sync-bundle" />
+        <module name="hudi-kafka-connect-bundle" />
+        <module name="hudi-timeline-service" />
+        <module name="hudi-integ-test" />
+        <module name="hudi-spark2_2.11" />
+        <module name="hudi-timeline-server-bundle" />
+      </profile>
+    </annotationProcessing>
+  </component>
+</project>
