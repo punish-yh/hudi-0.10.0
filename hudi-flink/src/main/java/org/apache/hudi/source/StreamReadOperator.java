@@ -137,6 +137,7 @@ public class StreamReadOperator extends AbstractStreamOperator<RowData>
 
   @Override
   public void processElement(StreamRecord<MergeOnReadInputSplit> element) {
+    // 接受到InputSplit就放入队列
     splits.add(element.getValue());
     enqueueProcessSplits();
   }
@@ -144,6 +145,7 @@ public class StreamReadOperator extends AbstractStreamOperator<RowData>
   private void enqueueProcessSplits() {
     if (currentSplitState == SplitState.IDLE && !splits.isEmpty()) {
       currentSplitState = SplitState.RUNNING;
+      // MailboxExecutor读取InputSplit的实际数据
       executor.execute(this::processSplits, "process input split");
     }
   }

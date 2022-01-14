@@ -62,6 +62,18 @@ import java.util.concurrent.TimeUnit;
  * <p><b>IMPORTANT NOTE: </b> Splits are forwarded downstream for reading in ascending instant commits time order,
  * in each downstream task, the splits are also read in receiving sequence. We do not ensure split consuming sequence
  * among the downstream tasks.
+ *
+ * 单线程的监听类，监听 MergeOnReadInputSplit
+ * 主要作用：
+ * 1. 监听用户提供的hoodie表路径
+ * 2. 决定接下来应该读/处理 哪些文件/块
+ * 3. 创建与这些文件对应的MergeOnReadInputSplit
+ * 4. 给下游分配分片
+ *
+ * 如果要读取的拆分被转发到下游 StreamReadOperator，则并行度可以大于 1
+ * 重要提示：Splits被分发到下游是按即时commit 顺序读取的，在每个下游任务中，splits也是按commit顺序读取的。
+ * 但不确保下游任务之间的splits消费顺序。
+ *
  */
 public class StreamReadMonitoringFunction
     extends RichSourceFunction<MergeOnReadInputSplit> implements CheckpointedFunction {
@@ -191,6 +203,7 @@ public class StreamReadMonitoringFunction
       // table does not exist
       return;
     }
+    // 获取新的增量切片
     IncrementalInputSplits.Result result =
         incrementalInputSplits.inputSplits(metaClient, this.hadoopConf, this.issuedInstant);
     if (result.isEmpty()) {

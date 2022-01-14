@@ -114,12 +114,14 @@ public class BucketAssignFunction<K, I, O extends HoodieRecord<?>>
   public void open(Configuration parameters) throws Exception {
     super.open(parameters);
     HoodieWriteConfig writeConfig = StreamerUtil.getHoodieClientConfig(this.conf);
+    // Hadoop+FlinkRuntimeContext
     HoodieFlinkEngineContext context = new HoodieFlinkEngineContext(
         new SerializableConfiguration(StreamerUtil.getHadoopConf()),
         new FlinkTaskContextSupplier(getRuntimeContext()));
+    // Bucket分配器
     this.bucketAssigner = BucketAssigners.create(
-        getRuntimeContext().getIndexOfThisSubtask(),
-        getRuntimeContext().getMaxNumberOfParallelSubtasks(),
+        getRuntimeContext().getIndexOfThisSubtask(),// 当前子任务
+        getRuntimeContext().getMaxNumberOfParallelSubtasks(),// 子任务并行度
         getRuntimeContext().getNumberOfParallelSubtasks(),
         ignoreSmallFiles(),
         HoodieTableType.valueOf(conf.getString(FlinkOptions.TABLE_TYPE)),

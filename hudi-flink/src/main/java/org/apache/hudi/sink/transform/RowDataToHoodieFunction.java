@@ -83,17 +83,22 @@ public class RowDataToHoodieFunction<I extends RowData, O extends HoodieRecord>
   @Override
   public void open(Configuration parameters) throws Exception {
     super.open(parameters);
+    // Avro Schema
     this.avroSchema = StreamerUtil.getSourceSchema(this.config);
+    // 创建RowData转换Hudi的GenericRecord的converter
     this.converter = RowDataToAvroConverters.createConverter(this.rowType);
+    // 主键生成器
     this.keyGenerator =
         HoodieAvroKeyGeneratorFactory
             .createKeyGenerator(flinkConf2TypedProperties(FlinkOptions.flatOptions(this.config)));
+    // 数据加载
     this.payloadCreation = PayloadCreation.instance(config);
   }
 
   @SuppressWarnings("unchecked")
   @Override
   public O map(I i) throws Exception {
+    // 每来一条数据都会执行map方法,进行转换成HoodieRecord
     return (O) toHoodieRecord(i);
   }
 
@@ -117,7 +122,7 @@ public class RowDataToHoodieFunction<I extends RowData, O extends HoodieRecord>
     HoodieRecordPayload payload = payloadCreation.createPayload(gr);
     // 获取操作类型，增删改
     HoodieOperation operation = HoodieOperation.fromValue(record.getRowKind().toByteValue());
-    // 构造出HoodieRecord
+    // 构造出HoodieRecord,Key+Payload+op
     return new HoodieRecord<>(hoodieKey, payload, operation);
   }
 }

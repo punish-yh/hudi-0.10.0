@@ -174,12 +174,17 @@ public class HoodieTableSource implements
       @Override
       public DataStream<RowData> produceDataStream(StreamExecutionEnvironment execEnv) {
         @SuppressWarnings("unchecked")
+        // 数据类型
         TypeInformation<RowData> typeInfo =
             (TypeInformation<RowData>) TypeInfoDataTypeConverter.fromDataTypeToTypeInfo(getProducedDataType());
         if (conf.getBoolean(FlinkOptions.READ_AS_STREAMING)) {
+          // 流读模式
+          // 这个monitor主要用来控制hdfs上的文件读取、以及转为hoodie格式 （处理的应该都是元数据）
+          // FIXME 这个monitor只能是单线程的，能不能扩展成多线程？或者该monitor是否为瓶颈？
           StreamReadMonitoringFunction monitoringFunction = new StreamReadMonitoringFunction(
               conf, FilePathUtils.toFlinkPath(path), maxCompactionMemoryInBytes, getRequiredPartitionPaths());
           InputFormat<RowData, ?> inputFormat = getInputFormat(true);
+          // 把 MergeOnReadInputSplit 转换成 RowData（数据从monitor获取到的）
           OneInputStreamOperatorFactory<MergeOnReadInputSplit, RowData> factory = StreamReadOperator.factory((MergeOnReadInputFormat) inputFormat);
           SingleOutputStreamOperator<RowData> source = execEnv.addSource(monitoringFunction, getSourceOperatorName("split_monitor"))
               .setParallelism(1)
@@ -187,6 +192,8 @@ public class HoodieTableSource implements
               .setParallelism(conf.getInteger(FlinkOptions.READ_TASKS));
           return new DataStreamSource<>(source);
         } else {
+          // 有界读
+          // 读取数据并转为RowData格式
           InputFormatSourceFunction<RowData> func = new InputFormatSourceFunction<>(getInputFormat(), typeInfo);
           DataStreamSource<RowData> source = execEnv.addSource(func, asSummaryString(), typeInfo);
           return source.name(getSourceOperatorName("bounded_source")).setParallelism(conf.getInteger(FlinkOptions.READ_TASKS));

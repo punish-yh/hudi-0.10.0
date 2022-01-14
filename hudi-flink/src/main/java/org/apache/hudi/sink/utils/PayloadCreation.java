@@ -74,8 +74,10 @@ public class PayloadCreation implements Serializable {
   }
 
   public HoodieRecordPayload<?> createPayload(GenericRecord record) throws Exception {
+    // 是否合并,由write.insert.drop.duplicates,write.operation决定
     if (shouldCombine) {
       ValidationUtils.checkState(preCombineField != null);
+      // 将重复数据进行合并,根据时间字段进行合并
       Comparable<?> orderingVal = (Comparable<?>) HoodieAvroUtils.getNestedFieldVal(record,
           preCombineField, false);
       return (HoodieRecordPayload<?>) constructor.newInstance(record, orderingVal);

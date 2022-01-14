@@ -128,7 +128,9 @@ public class IncrementalInputSplits implements Serializable {
       HoodieTableMetaClient metaClient,
       org.apache.hadoop.conf.Configuration hadoopConf,
       String issuedInstant) {
+    //已完成的Instant
     metaClient.reloadActiveTimeline();
+    // 获取新数据
     HoodieTimeline commitTimeline = metaClient.getCommitsAndCompactionTimeline().filterCompletedAndCompactionInstants();
     if (commitTimeline.empty()) {
       LOG.warn("No splits found for the table under path " + path);
@@ -136,6 +138,7 @@ public class IncrementalInputSplits implements Serializable {
     }
     List<HoodieInstant> instants = filterInstantsWithRange(commitTimeline, issuedInstant);
     // get the latest instant that satisfies condition
+    // 获取满足条件的最新Instant
     final HoodieInstant instantToIssue = instants.size() == 0 ? null : instants.get(instants.size() - 1);
     final InstantRange instantRange;
     if (instantToIssue != null) {
@@ -146,12 +149,14 @@ public class IncrementalInputSplits implements Serializable {
             InstantRange.RangeType.OPEN_CLOSE);
       } else if (this.conf.getOptional(FlinkOptions.READ_START_COMMIT).isPresent()) {
         // first time consume and has a start commit
+        // 第一次consume 并且配置了start commit时间戳
         final String startCommit = this.conf.getString(FlinkOptions.READ_START_COMMIT);
         instantRange = startCommit.equalsIgnoreCase(FlinkOptions.START_COMMIT_EARLIEST)
             ? null
             : InstantRange.getInstance(startCommit, instantToIssue.getTimestamp(), InstantRange.RangeType.CLOSE_CLOSE);
       } else {
         // first time consume and no start commit, consumes the latest incremental data set.
+        // 流读第一次consume且没有指定 start commit，则从消费最新的增量数据
         instantRange = InstantRange.getInstance(instantToIssue.getTimestamp(), instantToIssue.getTimestamp(),
             InstantRange.RangeType.CLOSE_CLOSE);
       }
@@ -167,9 +172,11 @@ public class IncrementalInputSplits implements Serializable {
 
     if (instantRange == null) {
       // reading from the earliest, scans the partitions and files directly.
+      // instantRange 为空，表示读取最新数据
       FileIndex fileIndex = FileIndex.instance(new org.apache.hadoop.fs.Path(path.toUri()), conf);
       if (this.requiredPartitions != null) {
         // apply partition push down
+        // 应用分区下推
         fileIndex.setPartitionPaths(this.requiredPartitions);
       }
       writePartitions = new HashSet<>(fileIndex.getOrBuildPartitionPaths());
@@ -177,10 +184,15 @@ public class IncrementalInputSplits implements Serializable {
         LOG.warn("No partitions found for reading in user provided path.");
         return Result.EMPTY;
       }
+      //获取这个分区路径下的所有文件
       fileStatuses = fileIndex.getFilesInPartitions();
     } else {
+      // 不从latest 消费的场景
+      // 当前instant转为Metadata
       List<HoodieCommitMetadata> activeMetadataList = instants.stream()
           .map(instant -> WriteProfiles.getCommitMetadata(tableName, path, instant, commitTimeline)).collect(Collectors.toList());
+      // 将归档的instant转为Metadata，提前加载，防止从用户配置的earlist
+      // FIXME 有可能不需要，这一步是否比较耗时？耗时操作能否使用线程异步读取？
       List<HoodieCommitMetadata> archivedMetadataList = getArchivedMetadata(metaClient, instantRange, commitTimeline, tableName);
       if (archivedMetadataList.size() > 0) {
         LOG.warn("\n"
@@ -189,13 +201,16 @@ public class IncrementalInputSplits implements Serializable {
             + "---------- tweak 'read.tasks' option to add parallelism of read tasks.\n"
             + "--------------------------------------------------------------------------------");
       }
+      // 融合归档metadata和active的
       List<HoodieCommitMetadata> metadataList = archivedMetadataList.size() > 0
           // IMPORTANT: the merged metadata list must be in ascending order by instant time
+          //重要提示: 合并后的元数据列表必须按即时时间升序排列
           ? mergeList(archivedMetadataList, activeMetadataList)
           : activeMetadataList;
 
       writePartitions = HoodieInputFormatUtils.getWritePartitionPaths(metadataList);
       // apply partition push down
+      // 分区下推
       if (this.requiredPartitions != null) {
         writePartitions = writePartitions.stream()
             .filter(this.requiredPartitions::contains).collect(Collectors.toSet());
@@ -207,17 +222,24 @@ public class IncrementalInputSplits implements Serializable {
       fileStatuses = WriteProfiles.getWritePathsOfInstants(path, hadoopConf, metadataList, metaClient.getTableType());
     }
 
+    /*
+    此时已经拿到了所有要处理的文件列表 fileStatuses
+     */
+
     if (fileStatuses.length == 0) {
       LOG.warn("No files found for reading in user provided path.");
       return Result.EMPTY;
     }
 
+    // 在给定的时间轴上创建文件系统视图，并提供文件状态
     HoodieTableFileSystemView fsView = new HoodieTableFileSystemView(metaClient, commitTimeline, fileStatuses);
     final String endInstant = instantToIssue.getTimestamp();
     final AtomicInteger cnt = new AtomicInteger(0);
     final String mergeType = this.conf.getString(FlinkOptions.MERGE_TYPE);
+    // 封装成 MergeOnReadInputSplit
     List<MergeOnReadInputSplit> inputSplits = writePartitions.stream()
         .map(relPartitionPath -> fsView.getLatestMergedFileSlicesBeforeOrOn(relPartitionPath, endInstant)
+                // 构造成 MergeOnReadInputSplit
             .map(fileSlice -> {
               Option<List<String>> logPaths = Option.ofNullable(fileSlice.getLogFiles()
                   .sorted(HoodieLogFile.getLogFileComparator())

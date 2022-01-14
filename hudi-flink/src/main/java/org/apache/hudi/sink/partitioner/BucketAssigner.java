@@ -135,6 +135,7 @@ public class BucketAssigner implements AutoCloseable {
 
   public BucketInfo addInsert(String partitionPath) {
     // for new inserts, compute buckets depending on how many records we have for each partition
+    // 对于新的插入,根据每个分区有多少条记录来计算Bucket
     SmallFileAssign smallFileAssign = getSmallFileAssign(partitionPath);
 
     // first try packing this into one of the smallFiles
@@ -159,6 +160,8 @@ public class BucketAssigner implements AutoCloseable {
           // A promotion: when the HoodieRecord can record whether it is an UPDATE or INSERT,
           // we can always return an UPDATE BucketInfo here, and there is no need to record the
           // UPDATE bucket through calling #addUpdate.
+
+          // 向现有UpdateBucket分配插入
           return bucketInfoMap.get(key);
         }
         return new BucketInfo(BucketType.UPDATE, newFileAssignState.fileId, partitionPath);
